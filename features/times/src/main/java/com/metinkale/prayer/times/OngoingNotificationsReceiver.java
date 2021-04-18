@@ -19,6 +19,7 @@ package com.metinkale.prayer.times;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -63,6 +64,7 @@ import java.util.List;
 public class OngoingNotificationsReceiver extends InternalBroadcastReceiver implements InternalBroadcastReceiver.OnTimeTickListener, InternalBroadcastReceiver.OnPrefsChangedListener {
     private static final String FOREGROUND_NEEDY_ONGOING = "ongoing";
     private Integer mDefaultTextColor = null;
+    private int mLastNightModeFlags;
 
     @Override
     public void onTimeTick() {
@@ -143,9 +145,13 @@ public class OngoingNotificationsReceiver extends InternalBroadcastReceiver impl
                 views.setTextColor(R.id.countdown, textColor);
             }
 
+
             Notification.Builder builder =
                     new Notification.Builder(getContext());
             builder.setContentIntent(TimesFragment.getPendingIntent(t));
+            builder.setChronometerCountDown(true);
+            builder.setUsesChronometer(true);
+
 
             if (!icon) {
                 builder.setSmallIcon(R.drawable.ic_placeholder);
@@ -155,20 +161,18 @@ public class OngoingNotificationsReceiver extends InternalBroadcastReceiver impl
                 builder.setSmallIcon(R.drawable.ic_abicon);
             }
             builder.setOngoing(true);
-            builder.setWhen(icon ? System.currentTimeMillis() : 0);
+            builder.setWhen(nextTime.getMillis());
 
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                builder.setCustomContentView(views);
-            } else {
-                builder.setContent(views);
-            }
+            builder.setCustomContentView(views);
+
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setChannelId(NotificationUtils.getOngoingChannel(getContext()));
             }
 
-
+            builder.setSubText(t.getName());
+            builder.setStyle(new Notification.DecoratedCustomViewStyle());
             Notification noti = builder.build();
             noti.priority = Notification.PRIORITY_LOW;
             notifications.add(new Pair<>(t.getIntID(), noti));
@@ -238,8 +242,11 @@ public class OngoingNotificationsReceiver extends InternalBroadcastReceiver impl
     }
 
     private void extractDefaultTextColor() {
-        if (mDefaultTextColor != null) return;
-        ;
+        int nightModeFlags =
+                getContext().getResources().getConfiguration().uiMode &
+                        Configuration.UI_MODE_NIGHT_MASK;
+        if (mDefaultTextColor != null && nightModeFlags == mLastNightModeFlags) return;
+        mLastNightModeFlags = nightModeFlags;
         try {
             Notification.Builder builder = new Notification.Builder(getContext());
             builder.setContentTitle("COLOR_SEARCH_1ST");
